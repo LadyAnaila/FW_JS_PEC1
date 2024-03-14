@@ -7,10 +7,12 @@ const movieSelect = document.getElementById('movie');
 const selectedMovieName = document.getElementById('selected-movie-name');
 const currencySelect = document.getElementById('currency-one');
 const totalInCurrency = document.getElementById('total-in-currency');
+const currencyText = document.getElementById('currency'); // New line to get currency span
 
 // Variables
 let ticketPrice = +movieSelect.value;
 let selectedCurrency = currencySelect.value;
+let rate = 1;
 
 // Save selected movie index, price, and currency
 function setMovieData(movieIndex, moviePrice, movieCurrency) {
@@ -28,7 +30,11 @@ function updateSelectedCount() {
 
   count.innerText = selectedSeatsCount;
   total.innerText = (selectedSeatsCount * price).toFixed(2);
-  totalInCurrency.innerText = `${(selectedSeatsCount * price).toFixed(2)} ${currency}`;
+  totalInCurrency.innerText = `${(selectedSeatsCount * price * rate).toFixed(2)} ${currency}`;
+  currencyText.innerText = currency; // Update currency text
+  
+  const totalText = `You have selected ${selectedSeatsCount} seats for a total price of ${(selectedSeatsCount * price * rate).toFixed(2)} ${currency}`;
+  document.getElementById('selected-message').innerText = totalText;
 }
 
 // Get data from localStorage and populate UI
@@ -68,7 +74,7 @@ movieSelect.addEventListener('change', () => {
 // Currency select event
 currencySelect.addEventListener('change', () => {
   selectedCurrency = currencySelect.value;
-  updateSelectedCount();
+  updateCurrency();
 });
 
 // Seat click event
@@ -95,26 +101,21 @@ function updateCurrency() {
   const currency = currencySelect.value;
   localStorage.setItem('selectedCurrency', currency);
 
-  fetch(`https://api.exchangerate-api.com/v4/latest/USD`)
+  fetch(`https://v6.exchangerate-api.com/v6/251b1886bfa5bb396e0d5740/latest/USD`)
     .then(res => res.json())
     .then(data => {
-      const currencyRate = data.rates[currency];
-      movieSelect.querySelectorAll('option').forEach(option => {
-        option.innerText = option.getAttribute('name') + ` (${(option.value * currencyRate).toFixed(2)} ${currency})`;
+      rate = data.conversion_rates[currency];
+      
+      Array.from(movieSelect.options).forEach(option => {
+        const price = parseFloat(option.value);
+        option.innerText = `${option.text.split('(')[0].trim()} (${(price * rate).toFixed(2)} ${currency})`;
       });
-      updateTotalCount();
+
+      const { price } = getSelectedMovieInfo();
+      ticketPrice = price * rate;
+      updateSelectedCount();
+    })
+    .catch(err => {
+      console.log(`Error fetching currency rates: ${err}`);
     });
-
-  selectedCurrency.innerText = currency;
 }
-
-// Function to calculate and update total in selected currency
-function updateTotalCount() {
-  const { price, currency } = getSelectedMovieInfo();
-  const selectedSeatsCount = parseInt(count.innerText);
-  totalInCurrency.innerText = `${(selectedSeatsCount * price).toFixed(2)} ${currency}`;
-}
-
-// Event listeners for currency conversion
-currencySelect.addEventListener('change', updateCurrency);
-count.addEventListener('DOMSubtreeModified', updateTotalCount);
